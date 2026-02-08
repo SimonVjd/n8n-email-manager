@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: n8n-builder-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: email_manager
+      POSTGRES_USER: n8n_app
+      POSTGRES_PASSWORD: n8nBuild3r_2024!
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n_app -d email_manager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

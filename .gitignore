@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Next.js
+app/.next/
+app/out/
+
+# Vercel
+.vercel/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Build output
+dist/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Windows artifact
+nul
+
+# MCP servers (reference only, not project code)
+n8n-mcp/
+n8n-skills/
+
+# Claude memory
+.claude/
+
+# MCP config (contains API keys)
+.mcp.json
+
+# Misc
+cookies.txt
