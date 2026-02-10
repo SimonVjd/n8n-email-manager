@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-sans",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -19,15 +18,34 @@ export const metadata: Metadata = {
   description: "Inteligentná správa emailov s AI sumarizáciou",
 };
 
+// Inline script to apply theme before paint (prevents flash)
+const themeScript = `
+(function(){
+  try {
+    var t = JSON.parse(localStorage.getItem('theme'));
+    if (t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    else if (t === 'system' || t === null) {
+      if (window.matchMedia('(prefers-color-scheme:dark)').matches)
+        document.documentElement.setAttribute('data-theme','dark');
+    }
+  } catch(e){}
+})()
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="sk">
-      <body className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased`}>
-        {children}
+    <html lang="sk" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

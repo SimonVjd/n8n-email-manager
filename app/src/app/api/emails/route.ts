@@ -11,12 +11,58 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'Neautorizovaný' }, { status: 401 });
   }
 
-  const emails = await query<Email>(
-    `SELECT * FROM emails WHERE client_id = $1 ORDER BY received_at DESC LIMIT 50`,
+  const emails = await query<Email & { thread_count: number }>(
+    `SELECT e.*,
+       CASE WHEN e.gmail_thread_id IS NOT NULL THEN
+         (SELECT COUNT(*)::int FROM emails t WHERE t.gmail_thread_id = e.gmail_thread_id AND t.client_id = e.client_id)
+       ELSE 1 END as thread_count
+     FROM emails e
+     WHERE e.client_id = $1
+     ORDER BY e.received_at DESC LIMIT 100`,
     [session.sub]
   );
 
   return NextResponse.json({ success: true, data: emails });
+}
+
+// DELETE /api/emails — delete email(s)
+export async function DELETE(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Neautorizovaný' }, { status: 401 });
+  }
+
+  try {
+    const { ids } = await req.json();
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ success: false, error: 'Chýbajú ID emailov' }, { status: 400 });
+    }
+
+    const placeholders = ids.map((_: string, i: number) => `$${i + 2}`).join(',');
+
+    // Save gmail_ids before deleting so sync won't re-import them
+    const gmailRows = await query<{ gmail_id: string }>(
+      `SELECT gmail_id FROM emails WHERE client_id = $1 AND id IN (${placeholders}) AND gmail_id IS NOT NULL`,
+      [session.sub, ...ids]
+    );
+    if (gmailRows.length > 0) {
+      const values = gmailRows.map((_, i) => `($1, $${i + 2})`).join(',');
+      await query(
+        `INSERT INTO deleted_gmail_ids (client_id, gmail_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+        [session.sub, ...gmailRows.map(r => r.gmail_id)]
+      );
+    }
+
+    const result = await query(
+      `DELETE FROM emails WHERE client_id = $1 AND id IN (${placeholders}) RETURNING id`,
+      [session.sub, ...ids]
+    );
+
+    return NextResponse.json({ success: true, data: { deleted: result.length } });
+  } catch (error) {
+    console.error('Email delete error:', error);
+    return NextResponse.json({ success: false, error: 'Chyba pri mazaní' }, { status: 500 });
+  }
 }
 
 // POST /api/emails — add email with AI processing + FAQ matching

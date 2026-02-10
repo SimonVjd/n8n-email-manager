@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { useTheme, type Theme } from '@/hooks/useTheme';
+import Button from '@/components/ui/Button';
+import Skeleton from '@/components/ui/Skeleton';
+import {
+  Mail,
+  Sun,
+  Moon,
+  Monitor,
+  Link2,
+  Unlink,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
 
 interface GmailStatus {
   connected: boolean;
@@ -15,11 +31,11 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     fetchGmailStatus();
 
-    // Check URL params for OAuth result
     const gmailParam = searchParams.get('gmail');
     if (gmailParam === 'connected') {
       setMessage({ type: 'success', text: 'Gmail bol úspešne pripojený!' });
@@ -37,11 +53,11 @@ export default function SettingsPage() {
 
   async function fetchGmailStatus() {
     try {
-      const res = await fetch('/api/auth/gmail/status');
+      const res = await fetchWithTimeout('/api/auth/gmail/status', { timeout: 10000 });
       const data = await res.json();
       if (data.success) setGmail(data.data);
     } catch {
-      console.error('Failed to fetch Gmail status');
+      setMessage({ type: 'error', text: 'Nepodarilo sa načítať stav Gmail' });
     } finally {
       setLoading(false);
     }
@@ -50,13 +66,13 @@ export default function SettingsPage() {
   async function handleConnect() {
     setConnecting(true);
     try {
-      const res = await fetch('/api/auth/gmail');
+      const res = await fetchWithTimeout('/api/auth/gmail', { timeout: 10000 });
       const data = await res.json();
       if (data.success && data.url) {
         window.location.href = data.url;
       }
     } catch {
-      setMessage({ type: 'error', text: 'Chyba pri pripájaní Gmail' });
+      setMessage({ type: 'error', text: 'Chyba pri pripájaní Gmail. Server neodpovedá.' });
       setConnecting(false);
     }
   }
@@ -64,7 +80,7 @@ export default function SettingsPage() {
   async function handleDisconnect() {
     setDisconnecting(true);
     try {
-      const res = await fetch('/api/auth/gmail/disconnect', { method: 'POST' });
+      const res = await fetchWithTimeout('/api/auth/gmail/disconnect', { method: 'POST', timeout: 10000 });
       const data = await res.json();
       if (data.success) {
         setGmail({ connected: false, email: null });
@@ -73,85 +89,140 @@ export default function SettingsPage() {
         setMessage({ type: 'error', text: data.error });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Chyba pri odpájaní Gmail' });
+      setMessage({ type: 'error', text: 'Chyba pri odpájaní Gmail. Server neodpovedá.' });
     } finally {
       setDisconnecting(false);
     }
   }
 
+  const themeOptions: { value: Theme; label: string; icon: typeof Sun; desc: string }[] = [
+    { value: 'light', label: 'Svetlý', icon: Sun, desc: 'Vždy svetlý režim' },
+    { value: 'dark', label: 'Tmavý', icon: Moon, desc: 'Vždy tmavý režim' },
+    { value: 'system', label: 'Systém', icon: Monitor, desc: 'Podľa nastavení OS' },
+  ];
+
   return (
     <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold mb-6">Nastavenia</h1>
+      <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-1">Nastavenia</h1>
+      <p className="text-sm text-[var(--text-tertiary)] mb-6">Správa účtu a preferencií</p>
 
       {/* Message banner */}
       {message && (
         <div
-          className={`mb-6 px-4 py-3 rounded-xl text-sm ${
+          className={`mb-6 px-4 py-3 rounded-[var(--radius-lg)] text-sm flex items-center justify-between ${
             message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'bg-[var(--success-50)] text-[var(--success-700)] border border-[var(--success-500)]/20'
+              : 'bg-[var(--danger-50)] text-[var(--danger-600)] border border-[var(--danger-500)]/20'
           }`}
         >
-          {message.text}
+          <div className="flex items-center gap-2">
+            {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            {message.text}
+          </div>
           <button
             onClick={() => setMessage(null)}
-            className="float-right font-medium hover:opacity-70"
+            className="hover:opacity-70 transition-opacity"
           >
-            &times;
+            <X size={14} />
           </button>
         </div>
       )}
 
+      {/* Theme Settings */}
+      <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-6 mb-4 fade-in-up" style={{ animationFillMode: 'both' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-[var(--radius-lg)] bg-[var(--primary-50)] flex items-center justify-center">
+            {theme === 'dark' ? (
+              <Moon size={18} className="text-[var(--primary-600)]" />
+            ) : theme === 'light' ? (
+              <Sun size={18} className="text-[var(--primary-600)]" />
+            ) : (
+              <Monitor size={18} className="text-[var(--primary-600)]" />
+            )}
+          </div>
+          <div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Vzhľad</h2>
+            <p className="text-xs text-[var(--text-tertiary)]">Vyberte farebnú schému rozhrania</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {themeOptions.map(opt => {
+            const Icon = opt.icon;
+            const active = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setTheme(opt.value)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-[var(--radius-lg)] border-2 transition-all ${
+                  active
+                    ? 'border-[var(--primary-500)] bg-[var(--primary-50)]'
+                    : 'border-[var(--border-primary)] hover:border-[var(--border-secondary)] hover:bg-[var(--bg-hover)]'
+                }`}
+              >
+                <Icon size={20} className={active ? 'text-[var(--primary-600)]' : 'text-[var(--text-tertiary)]'} />
+                <span className={`text-sm font-medium ${active ? 'text-[var(--primary-700)]' : 'text-[var(--text-primary)]'}`}>
+                  {opt.label}
+                </span>
+                <span className="text-[10px] text-[var(--text-tertiary)]">{opt.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Gmail Integration Card */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+      <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-6 fade-in-up" style={{ animationDelay: '75ms', animationFillMode: 'both' }}>
         <div className="flex items-start gap-4">
-          {/* Gmail icon */}
-          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6ZM20 6L12 11L4 6H20ZM20 18H4V8L12 13L20 8V18Z" fill="#EA4335"/>
-            </svg>
+          <div className="w-10 h-10 rounded-[var(--radius-lg)] bg-[var(--danger-50)] flex items-center justify-center shrink-0">
+            <Mail size={18} className="text-[var(--danger-600)]" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold mb-1">Gmail</h2>
-            <p className="text-sm text-[var(--muted)] mb-4">
+            <h2 className="font-semibold text-[var(--text-primary)] mb-1">Gmail</h2>
+            <p className="text-sm text-[var(--text-tertiary)] mb-4">
               Pripojte Gmail účet na automatické sťahovanie a AI analýzu emailov.
             </p>
 
             {loading ? (
-              <div className="text-sm text-[var(--muted)]">Načítavanie...</div>
+              <div className="space-y-2">
+                <Skeleton width={120} height={14} />
+                <Skeleton width={200} height={36} rounded="lg" />
+              </div>
             ) : gmail?.connected ? (
               <div>
-                {/* Connected state */}
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  <span className="text-sm font-medium text-emerald-700">Pripojené</span>
+                  <div className="w-2 h-2 rounded-full bg-[var(--success-500)]" />
+                  <span className="text-sm font-medium text-[var(--success-600)]">Pripojené</span>
                   {gmail.email && (
-                    <span className="text-sm text-[var(--muted)]">— {gmail.email}</span>
+                    <span className="text-sm text-[var(--text-tertiary)]">— {gmail.email}</span>
                   )}
                 </div>
-                <button
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Unlink size={14} />}
                   onClick={handleDisconnect}
-                  disabled={disconnecting}
-                  className="px-4 py-2 text-sm border border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
+                  loading={disconnecting}
                 >
                   {disconnecting ? 'Odpájanie...' : 'Odpojiť Gmail'}
-                </button>
+                </Button>
               </div>
             ) : (
               <div>
-                {/* Disconnected state */}
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-stone-300"></div>
-                  <span className="text-sm text-[var(--muted)]">Nepripojené</span>
+                  <div className="w-2 h-2 rounded-full bg-[var(--text-tertiary)]" />
+                  <span className="text-sm text-[var(--text-tertiary)]">Nepripojené</span>
                 </div>
-                <button
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Link2 size={14} />}
                   onClick={handleConnect}
-                  disabled={connecting}
-                  className="px-4 py-2 text-sm bg-[var(--accent)] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                  loading={connecting}
                 >
                   {connecting ? 'Presmerovanie...' : 'Pripojiť Gmail'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -159,11 +230,20 @@ export default function SettingsPage() {
       </div>
 
       {/* Info */}
-      <div className="mt-4 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
-        <p className="text-xs text-blue-700">
-          <strong>Povolenia:</strong> Aplikácia má prístup iba na čítanie vašich emailov (gmail.readonly).
-          Nemôže odosielať ani mazať emaily.
-        </p>
+      <div className="mt-4 px-4 py-3 bg-[var(--info-50)] border border-[var(--info-500)]/20 rounded-[var(--radius-lg)] flex items-start gap-2 fade-in-up" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
+        <Info size={14} className="text-[var(--info-600)] shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="text-xs text-[var(--info-600)]">
+            <strong>Povolenia:</strong> Aplikácia má prístup na čítanie a odosielanie emailov
+            (gmail.readonly + gmail.send). Nemôže mazať emaily.
+          </p>
+          {gmail?.connected && (
+            <p className="text-xs text-[var(--info-600)]">
+              Ak ste Gmail pripájali pred aktiváciou odosielania, odpojte a znova pripojte účet
+              pre udelenie nových povolení.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

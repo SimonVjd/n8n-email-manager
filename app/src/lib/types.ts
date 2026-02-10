@@ -20,12 +20,18 @@ export interface Email {
   from_address: string;
   subject: string;
   body: string;
+  html_body: string | null;
   summary_sk: string | null;
   category: 'URGENT' | 'TIME_SENSITIVE' | 'FAQ' | 'NORMAL' | 'SPAM';
   faq_matched_id: string | null;
   auto_reply_sk: string | null;
+  reply_status: 'pending' | 'sent' | 'edited_sent' | 'rejected' | 'auto_sent' | 'auto_pending';
+  reply_sent_at: string | null;
+  reply_edited_text: string | null;
+  gmail_thread_id: string | null;
   is_read: boolean;
   received_at: string;
+  thread_count?: number;
 }
 
 export interface FAQ {
@@ -34,7 +40,24 @@ export interface FAQ {
   question_pattern: string;
   response_template_sk: string;
   usage_count: number;
+  auto_send: boolean;
+  times_edited: number;
+  times_rejected: number;
   created_at: string;
+}
+
+export interface ReplyPattern {
+  id: string;
+  client_id: string;
+  email_pattern: string;
+  reply_template: string;
+  auto_send: boolean;
+  confidence_score: number;
+  times_used: number;
+  times_edited: number;
+  times_rejected: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface EmailLog {
@@ -87,6 +110,16 @@ export interface DashboardMetrics {
   faq_matches: number;
   categories: { category: string; count: number }[];
   recent_emails: (Email & { client_name: string })[];
+}
+
+// Reply templates
+export interface ReplyTemplate {
+  id: string;
+  client_id: string;
+  name: string;
+  body: string;
+  usage_count: number;
+  created_at: string;
 }
 
 // API response types

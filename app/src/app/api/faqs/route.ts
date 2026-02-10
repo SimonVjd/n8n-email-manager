@@ -60,20 +60,46 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const { id, question_pattern, response_template_sk } = await req.json();
+    const { id, question_pattern, response_template_sk, auto_send } = await req.json();
 
-    if (!id || !question_pattern || !response_template_sk) {
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: 'ID, vzor otázky a šablóna odpovede sú povinné' },
+        { success: false, error: 'ID je povinné' },
         { status: 400 }
       );
     }
 
+    // Build dynamic update
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (typeof question_pattern === 'string') {
+      updates.push(`question_pattern = $${idx++}`);
+      values.push(question_pattern);
+    }
+    if (typeof response_template_sk === 'string') {
+      updates.push(`response_template_sk = $${idx++}`);
+      values.push(response_template_sk);
+    }
+    if (typeof auto_send === 'boolean') {
+      updates.push(`auto_send = $${idx++}`);
+      values.push(auto_send);
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Žiadne zmeny' },
+        { status: 400 }
+      );
+    }
+
+    values.push(id, session.sub);
     const faq = await queryOne<FAQ>(
-      `UPDATE faqs SET question_pattern = $1, response_template_sk = $2
-       WHERE id = $3 AND client_id = $4
+      `UPDATE faqs SET ${updates.join(', ')}
+       WHERE id = $${idx++} AND client_id = $${idx}
        RETURNING *`,
-      [question_pattern, response_template_sk, id, session.sub]
+      values
     );
 
     if (!faq) {
