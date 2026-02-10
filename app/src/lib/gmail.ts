@@ -1,6 +1,9 @@
 import { google } from 'googleapis';
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
+];
 
 export function getOAuth2Client() {
   return new google.auth.OAuth2(
@@ -32,11 +35,13 @@ export function getGmailClient(refreshToken: string) {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
-interface ParsedEmail {
+export interface ParsedEmail {
   gmail_id: string;
+  gmail_thread_id: string;
   from_address: string;
   subject: string;
   body: string;
+  html_body: string | null;
   received_at: string;
 }
 
@@ -48,6 +53,31 @@ function decodeBase64Url(data: string): string {
 function getHeader(headers: { name: string; value: string }[], name: string): string {
   const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
   return header?.value || '';
+}
+
+function extractHtmlBody(payload: Record<string, unknown>): string | null {
+  // Direct text/html body
+  if (payload.mimeType === 'text/html' && payload.body && (payload.body as Record<string, unknown>).data) {
+    return decodeBase64Url((payload.body as Record<string, unknown>).data as string);
+  }
+
+  // Multipart — look for text/html
+  if (payload.parts && Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      if (part.mimeType === 'text/html' && part.body?.data) {
+        return decodeBase64Url(part.body.data);
+      }
+    }
+    // Nested multipart
+    for (const part of payload.parts) {
+      if (part.parts) {
+        const nested = extractHtmlBody(part);
+        if (nested) return nested;
+      }
+    }
+  }
+
+  return null;
 }
 
 function extractBody(payload: Record<string, unknown>): string {
@@ -109,13 +139,17 @@ export async function fetchNewEmails(
     const from = getHeader(headers, 'From');
     const subject = getHeader(headers, 'Subject');
     const date = getHeader(headers, 'Date');
-    const body = extractBody(full.data.payload as Record<string, unknown>);
+    const payload = full.data.payload as Record<string, unknown>;
+    const body = extractBody(payload);
+    const htmlBody = extractHtmlBody(payload);
 
     emails.push({
       gmail_id: msg.id!,
+      gmail_thread_id: full.data.threadId || msg.id!,
       from_address: from,
       subject: subject || '(bez predmetu)',
-      body: body.substring(0, 5000), // Limit body size
+      body: body.substring(0, 5000),
+      html_body: htmlBody ? htmlBody.substring(0, 100000) : null,
       received_at: date ? new Date(date).toISOString() : new Date().toISOString(),
     });
   }
@@ -127,4 +161,82 @@ export async function getGmailProfile(refreshToken: string): Promise<string | nu
   const gmail = getGmailClient(refreshToken);
   const profile = await gmail.users.getProfile({ userId: 'me' });
   return profile.data.emailAddress || null;
+}
+
+export async function sendGmailReply(
+  refreshToken: string,
+  to: string,
+  subject: string,
+  body: string,
+  inReplyToMessageId: string,
+  threadId: string
+): Promise<string> {
+  const gmail = getGmailClient(refreshToken);
+  const profile = await gmail.users.getProfile({ userId: 'me' });
+  const fromEmail = profile.data.emailAddress!;
+
+  // Fetch the original message's RFC-822 Message-ID header for proper threading
+  let rfc822MessageId = '';
+  try {
+    const original = await gmail.users.messages.get({
+      userId: 'me',
+      id: inReplyToMessageId,
+      format: 'metadata',
+      metadataHeaders: ['Message-ID'],
+    });
+    const headers = (original.data.payload?.headers || []) as { name: string; value: string }[];
+    const mid = headers.find(h => h.name.toLowerCase() === 'message-id');
+    if (mid?.value) {
+      rfc822MessageId = mid.value;
+    }
+  } catch {
+    // If we can't fetch the original, proceed without In-Reply-To
+  }
+
+  const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
+
+  const messageLines = [
+    `From: ${fromEmail}`,
+    `To: ${to}`,
+    `Subject: ${replySubject}`,
+  ];
+
+  if (rfc822MessageId) {
+    messageLines.push(`In-Reply-To: ${rfc822MessageId}`);
+    messageLines.push(`References: ${rfc822MessageId}`);
+  }
+
+  messageLines.push('Content-Type: text/plain; charset=UTF-8');
+  messageLines.push('');
+  messageLines.push(body);
+
+  const rawMessage = messageLines.join('\r\n');
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  try {
+    const res = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage,
+        threadId,
+      },
+    });
+    return res.data.id || '';
+  } catch (err: unknown) {
+    // If thread not found (404), retry without threadId — sends as new email
+    const code = (err as { code?: number })?.code;
+    if (code === 404) {
+      const res = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw: encodedMessage },
+      });
+      return res.data.id || '';
+    }
+    throw err;
+  }
 }
