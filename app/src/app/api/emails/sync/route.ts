@@ -34,9 +34,9 @@ export async function POST() {
 
   console.log('[sync] Starting sync for client:', session.sub);
 
-  // Get client's Gmail credentials
+  // Get client's Gmail credentials and AI settings
   const client = await queryOne<Client>(
-    'SELECT gmail_connected, gmail_refresh_token FROM clients WHERE id = $1',
+    'SELECT gmail_connected, gmail_refresh_token, ai_processing_enabled, auto_reply_enabled FROM clients WHERE id = $1',
     [session.sub]
   );
 
@@ -98,18 +98,45 @@ export async function POST() {
     const newEmails = gmailEmails.filter(e => !existingIds.has(e.gmail_id));
     console.log('[sync] New emails to process:', newEmails.length, '(existing:', existingRows.length, ', deleted:', deletedRows.length, ')');
 
+    // Check if AI processing is enabled for this client
+    // Respects both the client setting AND the ai_processing consent
+    const aiEnabled = client.ai_processing_enabled !== false;
+    let hasAiConsent = aiEnabled;
+    if (aiEnabled) {
+      const consentRow = await queryOne<{ granted: boolean }>(
+        `SELECT granted FROM user_consents WHERE user_id = $1 AND consent_type = 'ai_processing'`,
+        [session.sub]
+      );
+      hasAiConsent = consentRow?.granted === true;
+    }
+    const shouldRunAi = aiEnabled && hasAiConsent;
+
+    console.log('[sync] AI processing:', shouldRunAi ? 'enabled' : 'disabled');
+
     let synced = 0;
     let faqMatched = 0;
     let autoSent = 0;
     for (const email of newEmails) {
       console.log('[sync] Processing email:', email.subject);
-      // AI analysis + FAQ matching
-      const { summary_sk, category, faq_matched_id, auto_reply_sk } = await analyzeEmail(
-        session.sub, email.subject, email.from_address, email.body
-      );
 
-      // Check if matched FAQ has auto_send enabled
-      const shouldAutoSend = faq_matched_id && autoFaqMap.has(faq_matched_id) && auto_reply_sk;
+      // AI analysis + FAQ matching (only if enabled and consented)
+      let summary_sk: string | null = null;
+      let category = 'NORMAL';
+      let faq_matched_id: string | null = null;
+      let auto_reply_sk: string | null = null;
+
+      if (shouldRunAi) {
+        const analysis = await analyzeEmail(
+          session.sub, email.subject, email.from_address, email.body
+        );
+        summary_sk = analysis.summary_sk;
+        category = analysis.category;
+        faq_matched_id = analysis.faq_matched_id;
+        auto_reply_sk = analysis.auto_reply_sk;
+      }
+
+      // Check if matched FAQ has auto_send enabled AND client allows auto-replies
+      const shouldAutoSend = client.auto_reply_enabled !== false && faq_matched_id && autoFaqMap.has(faq_matched_id) && auto_reply_sk;
       const replyStatus = shouldAutoSend ? 'auto_pending' : 'pending';
 
       const result = await query<{ id: string }>(
