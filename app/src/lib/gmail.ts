@@ -1,3 +1,14 @@
+/**
+ * Gmail API Integration
+ *
+ * Google API Services User Data Policy — Limited Use Disclosure:
+ * This app's use of Google user data (Gmail messages) is limited to:
+ *   1. Reading inbox messages for display and AI-powered categorization/summarization
+ *   2. Sending reply emails on behalf of the user (only with explicit user action or FAQ auto-reply consent)
+ * Data is stored in a secured database and is never shared with third parties.
+ * Users can revoke access at any time via Settings or Google Account permissions.
+ * AI processing (OpenAI) of email content requires separate explicit consent (ai_processing consent type).
+ */
 import { google } from 'googleapis';
 
 const SCOPES = [

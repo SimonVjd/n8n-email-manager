@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { Mail, Eye, EyeOff, User, Sparkles, Zap, MessageSquare, BarChart3, Shield } from 'lucide-react';
 
@@ -14,6 +15,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +25,9 @@ export default function LoginPage() {
 
     try {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-      const body = isRegister ? { name, email, password } : { email, password };
+      const body = isRegister
+        ? { name, email, password, consents: { terms: termsAccepted, privacy: privacyAccepted } }
+        : { email, password };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -167,6 +172,39 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {isRegister && (
+                <div className="space-y-2.5 pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={e => setTermsAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-[var(--border-primary)] accent-[var(--primary-600)]"
+                    />
+                    <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                      Súhlasím s{' '}
+                      <Link href="/terms" target="_blank" className="text-[var(--primary-600)] hover:underline">
+                        Všeobecnými obchodnými podmienkami
+                      </Link>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={privacyAccepted}
+                      onChange={e => setPrivacyAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-[var(--border-primary)] accent-[var(--primary-600)]"
+                    />
+                    <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                      Oboznámil som sa so{' '}
+                      <Link href="/privacy-policy" target="_blank" className="text-[var(--primary-600)] hover:underline">
+                        Zásadami ochrany osobných údajov
+                      </Link>
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {error && (
                 <div className="text-sm text-[var(--danger-600)] bg-[var(--danger-50)] px-3.5 py-2.5 rounded-[var(--radius-md)] border border-[var(--danger-500)]/20 flex items-center gap-2">
                   <Shield size={14} className="shrink-0" />
@@ -177,6 +215,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 loading={loading}
+                disabled={isRegister && (!termsAccepted || !privacyAccepted)}
                 className="w-full"
                 size="lg"
               >
@@ -191,6 +230,8 @@ export default function LoginPage() {
                 onClick={() => {
                   setIsRegister(!isRegister);
                   setError('');
+                  setTermsAccepted(false);
+                  setPrivacyAccepted(false);
                 }}
                 className="text-sm text-[var(--primary-600)] hover:text-[var(--primary-700)] transition-colors"
               >

@@ -338,7 +338,7 @@ export default function InboxPage() {
             </div>
 
             {selected.summary_sk && (
-              <div className="bg-[var(--primary-50)] rounded-[var(--radius-lg)] p-4 mb-6 border border-[var(--primary-100)]">
+              <div className="bg-[var(--primary-50)] rounded-[var(--radius-lg)] p-4 mb-6 border border-[var(--primary-100)]" title="Toto zhrnutie bolo automaticky vygenerované AI (OpenAI). Môže obsahovať nepresnosti.">
                 <p className="text-xs font-medium text-[var(--primary-600)] mb-1">AI Zhrnutie</p>
                 <p className="text-sm text-[var(--text-primary)]">{selected.summary_sk}</p>
               </div>
@@ -661,7 +661,9 @@ function HtmlEmailRenderer({ html }: { html: string }) {
     return () => { iframe.removeEventListener('load', resize); clearTimeout(t1); clearTimeout(t2); };
   }, [html]);
 
-  const wrappedHtml = `<style>html,body{margin:0;padding:0;max-width:100%!important;overflow-x:hidden!important;word-break:break-word}img,table{max-width:100%!important;height:auto!important}pre{white-space:pre-wrap!important;overflow-x:hidden!important}</style>${html}`;
+  const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
+  const darkCss = isDark ? 'html,body{background:transparent;color:#fafaf9}a{color:#818cf8}' : '';
+  const wrappedHtml = `<style>html,body{margin:0;padding:0;max-width:100%!important;overflow-x:hidden!important;word-break:break-word}img,table{max-width:100%!important;height:auto!important}pre{white-space:pre-wrap!important;overflow-x:hidden!important}${darkCss}</style>${html}`;
 
   return (
     <iframe

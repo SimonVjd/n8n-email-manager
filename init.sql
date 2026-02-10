@@ -11,6 +11,8 @@ CREATE TABLE clients (
   gmail_refresh_token TEXT,
   gmail_email VARCHAR(255),
   active BOOLEAN DEFAULT true,
+  ai_processing_enabled BOOLEAN DEFAULT true,
+  auto_reply_enabled BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -130,6 +132,36 @@ CREATE INDEX idx_reply_patterns_client ON reply_patterns(client_id);
 CREATE INDEX idx_logs_client ON email_logs(client_id, created_at DESC);
 CREATE INDEX idx_reply_templates_client ON reply_templates(client_id);
 CREATE INDEX idx_emails_search ON emails USING GIN(search_vector);
+
+-- User consents (GDPR compliance)
+CREATE TABLE IF NOT EXISTS user_consents (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  consent_type VARCHAR(50) NOT NULL,
+  granted BOOLEAN NOT NULL DEFAULT false,
+  granted_at TIMESTAMPTZ DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  version VARCHAR(20) DEFAULT '1.0',
+  UNIQUE(user_id, consent_type)
+);
+
+CREATE INDEX idx_user_consents_user_id ON user_consents(user_id);
+CREATE INDEX idx_user_consents_type ON user_consents(consent_type);
+
+-- GDPR requests (data export, deletion)
+CREATE TABLE IF NOT EXISTS gdpr_requests (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  request_type VARCHAR(20) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  notes TEXT
+);
+
+CREATE INDEX idx_gdpr_requests_user_id ON gdpr_requests(user_id);
 
 -- Insert default admin user (password: admin123 — change in production)
 -- Hash generated with bcrypt, 10 rounds

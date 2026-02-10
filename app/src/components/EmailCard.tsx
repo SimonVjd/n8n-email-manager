@@ -2,7 +2,7 @@
 
 import type { Email } from '@/lib/types';
 import { CategoryBadge } from '@/components/ui/Badge';
-import { Check, CheckCircle2 } from 'lucide-react';
+import { Check, CheckCircle2, Brain } from 'lucide-react';
 
 export type DensityMode = 'comfortable' | 'compact';
 
@@ -88,6 +88,11 @@ export default function EmailCard({
                 {email.thread_count}
               </span>
             )}
+            {email.reply_status === 'auto_sent' && (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-[var(--primary-50)] rounded text-[8px] font-medium text-[var(--primary-600)]" title="Automaticky odoslané AI">
+                <Brain size={8} />AI
+              </span>
+            )}
             {isResolved && <CheckCircle2 size={12} className="text-[var(--success-600)]" />}
             <span className="text-[10px] text-[var(--text-tertiary)] tabular-nums whitespace-nowrap">{timeStr}</span>
           </div>
@@ -128,6 +133,11 @@ export default function EmailCard({
             {(email.thread_count ?? 0) > 1 && (
               <span className="text-[10px] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] px-1.5 py-0.5 rounded tabular-nums">
                 {email.thread_count}
+              </span>
+            )}
+            {email.reply_status === 'auto_sent' && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[var(--primary-50)] rounded text-[9px] font-medium text-[var(--primary-600)]" title="Automaticky odoslané AI">
+                <Brain size={10} />AI
               </span>
             )}
             {isResolved && <CheckCircle2 size={14} className="text-[var(--success-600)]" />}

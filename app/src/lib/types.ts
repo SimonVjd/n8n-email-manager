@@ -10,6 +10,8 @@ export interface Client {
   gmail_refresh_token: string | null;
   gmail_email: string | null;
   active: boolean;
+  ai_processing_enabled: boolean;
+  auto_reply_enabled: boolean;
   created_at: string;
 }
 
@@ -120,6 +122,34 @@ export interface ReplyTemplate {
   body: string;
   usage_count: number;
   created_at: string;
+}
+
+// Consent types
+export type ConsentType = 'ai_processing' | 'email_access' | 'terms_accepted' | 'privacy_policy_accepted' | 'cookies_analytics' | 'cookies_marketing';
+
+export interface UserConsent {
+  id: number;
+  user_id: string;
+  consent_type: ConsentType;
+  granted: boolean;
+  granted_at: string;
+  revoked_at: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  version: string;
+}
+
+export type GdprRequestType = 'export' | 'deletion' | 'access' | 'rectification';
+export type GdprRequestStatus = 'pending' | 'processing' | 'completed' | 'rejected';
+
+export interface GdprRequest {
+  id: number;
+  user_id: string;
+  request_type: GdprRequestType;
+  status: GdprRequestStatus;
+  requested_at: string;
+  completed_at: string | null;
+  notes: string | null;
 }
 
 // API response types

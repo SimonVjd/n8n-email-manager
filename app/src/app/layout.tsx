@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
+import { CookieProvider } from "@/contexts/CookieContext";
+import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,9 +45,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <CookieProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+          <CookieBanner />
+        </CookieProvider>
       </body>
     </html>
   );
