@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { queryOne } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 import { createToken, setSessionCookie } from '@/lib/auth';
 import type { Client } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, consents } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -47,6 +47,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Registrácia zlyhala' },
         { status: 500 }
+      );
+    }
+
+    // Save consent records
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    const ua = req.headers.get('user-agent') || 'unknown';
+
+    if (consents?.terms) {
+      await query(
+        `INSERT INTO user_consents (user_id, consent_type, granted, ip_address, user_agent)
+         VALUES ($1, 'terms_accepted', true, $2, $3)
+         ON CONFLICT (user_id, consent_type) DO UPDATE SET granted = true, granted_at = NOW(), ip_address = $2, user_agent = $3`,
+        [client.id, ip, ua]
+      );
+    }
+    if (consents?.privacy) {
+      await query(
+        `INSERT INTO user_consents (user_id, consent_type, granted, ip_address, user_agent)
+         VALUES ($1, 'privacy_acknowledged', true, $2, $3)
+         ON CONFLICT (user_id, consent_type) DO UPDATE SET granted = true, granted_at = NOW(), ip_address = $2, user_agent = $3`,
+        [client.id, ip, ua]
       );
     }
 
