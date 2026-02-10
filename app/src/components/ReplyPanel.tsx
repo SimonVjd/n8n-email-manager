@@ -5,6 +5,7 @@ import type { Email, ReplyTemplate } from '@/lib/types';
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { useToast } from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
+import AIDisclaimer from '@/components/AIDisclaimer';
 import {
   Reply,
   ChevronDown,
@@ -260,7 +261,7 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
               <div className="relative" ref={templateDropdownRef}>
                 <button
                   onClick={() => setShowTemplates(v => !v)}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-[var(--radius-md)] border border-[var(--primary-200)] text-[var(--primary-700)] bg-white hover:bg-[var(--primary-100)] transition-colors"
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-[var(--radius-md)] border border-[var(--primary-200)] text-[var(--primary-700)] bg-[var(--bg-primary)] hover:bg-[var(--primary-100)] transition-colors"
                 >
                   <FileText size={12} />
                   Šablóny
@@ -381,7 +382,7 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
 
             {/* Save as template inline form */}
             {showNewTemplate && (
-              <div className="mb-3 p-3 bg-white border border-[var(--primary-200)] rounded-[var(--radius-md)]">
+              <div className="mb-3 p-3 bg-[var(--bg-primary)] border border-[var(--primary-200)] rounded-[var(--radius-md)]">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-medium text-[var(--text-primary)]">Uložiť ako šablónu</p>
                   <button onClick={() => setShowNewTemplate(false)} className="p-0.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
@@ -409,11 +410,15 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
               </div>
             )}
 
+            {email.auto_reply_sk && !isEdited && (
+              <AIDisclaimer variant="banner" />
+            )}
+
             <textarea
               ref={textareaRef}
               value={replyText}
               onChange={(e) => { setReplyText(e.target.value); setIsEdited(true); }}
-              className="reply-textarea w-full bg-white border border-[var(--primary-200)] rounded-[var(--radius-md)] px-3 py-2 text-sm leading-relaxed text-[var(--text-primary)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary-300)] min-h-[80px] max-h-[400px] overflow-y-auto"
+              className="reply-textarea w-full bg-[var(--bg-primary)] border border-[var(--primary-200)] rounded-[var(--radius-md)] px-3 py-2 text-sm leading-relaxed text-[var(--text-primary)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary-300)] min-h-[80px] max-h-[400px] overflow-y-auto"
               rows={4}
             />
 
