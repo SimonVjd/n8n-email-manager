@@ -1,7 +1,28 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ClientWithStats } from '@/lib/types';
+import Skeleton from '@/components/ui/Skeleton';
+import Button from '@/components/ui/Button';
+import {
+  Users,
+  Mail,
+  HelpCircle,
+  Calendar,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
+
+const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
+  URGENT: { label: 'Urgentne', color: 'var(--danger-600)' },
+  TIME_SENSITIVE: { label: 'Casovo citlive', color: 'var(--warning-600)' },
+  FAQ: { label: 'FAQ', color: 'var(--info-600)' },
+  NORMAL: { label: 'Bezne', color: 'var(--text-tertiary)' },
+  SPAM: { label: 'Spam', color: 'var(--border-secondary)' },
+};
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<ClientWithStats[]>([]);
@@ -10,6 +31,7 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const detailRequestId = useRef(0);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -18,7 +40,7 @@ export default function ClientsPage() {
       if (data.success) setClients(data.data);
       else setError(data.error);
     } catch {
-      setError('Nepodarilo sa načítať klientov');
+      setError('Nepodarilo sa nacitat klientov');
     } finally {
       setLoading(false);
     }
@@ -31,14 +53,17 @@ export default function ClientsPage() {
   async function loadDetail(id: string) {
     setSelected(id);
     setDetailLoading(true);
+    const requestId = ++detailRequestId.current;
     try {
       const res = await fetch(`/api/admin/clients/${id}`);
       const data = await res.json();
+      // Only apply if this is still the latest request
+      if (requestId !== detailRequestId.current) return;
       if (data.success) setDetail(data.data);
     } catch {
-      setDetail(null);
+      if (requestId === detailRequestId.current) setDetail(null);
     } finally {
-      setDetailLoading(false);
+      if (requestId === detailRequestId.current) setDetailLoading(false);
     }
   }
 
@@ -65,11 +90,19 @@ export default function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="h-8 w-32 bg-[var(--border)] rounded-lg animate-pulse mb-6" />
+      <div className="p-8 max-w-6xl">
+        <Skeleton width={200} height={24} className="mb-2" />
+        <Skeleton width={160} height={14} className="mb-6" />
         <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-16 bg-[var(--card)] border border-[var(--border)] rounded-xl animate-pulse" />
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-4 flex items-center gap-4">
+              <Skeleton width={40} height={40} rounded="full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton width={140} height={14} />
+                <Skeleton width={200} height={12} />
+              </div>
+              <Skeleton width={60} height={28} />
+            </div>
           ))}
         </div>
       </div>
@@ -79,8 +112,11 @@ export default function ClientsPage() {
   if (error) {
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Správa klientov</h1>
-        <div className="text-sm text-[var(--danger)] bg-red-50 px-4 py-3 rounded-xl">{error}</div>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Sprava klientov</h1>
+        <div className="text-sm text-[var(--danger-600)] bg-[var(--danger-50)] px-4 py-3 rounded-[var(--radius-lg)] flex items-center gap-2">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
       </div>
     );
   }
@@ -88,48 +124,58 @@ export default function ClientsPage() {
   return (
     <div className="flex h-full">
       {/* Client List */}
-      <div className="w-[480px] border-r border-[var(--border)] flex flex-col shrink-0">
-        <div className="px-5 py-4 border-b border-[var(--border)]">
-          <h1 className="font-semibold text-lg">Správa klientov</h1>
-          <p className="text-xs text-[var(--muted)] mt-0.5">{clients.length} registrovaných klientov</p>
+      <div className="w-[480px] border-r border-[var(--border-primary)] flex flex-col shrink-0">
+        <div className="px-5 py-4 border-b border-[var(--border-primary)]">
+          <div className="flex items-center gap-2">
+            <h1 className="font-semibold text-lg text-[var(--text-primary)]">Sprava klientov</h1>
+            <span className="text-xs text-[var(--text-tertiary)]">{clients.length}</span>
+          </div>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">Registrovani klienti</p>
         </div>
 
         <div className="flex-1 overflow-auto">
           {clients.length === 0 ? (
-            <div className="p-8 text-center text-sm text-[var(--muted)]">Žiadni klienti</div>
+            <div className="p-8 text-center">
+              <Users size={28} className="mx-auto mb-3 text-[var(--text-tertiary)] opacity-30" />
+              <p className="text-sm text-[var(--text-tertiary)]">Ziadni klienti</p>
+            </div>
           ) : (
             clients.map((client) => (
               <button
                 key={client.id}
                 onClick={() => loadDetail(client.id)}
-                className={`w-full text-left px-5 py-3 border-b border-[var(--border)] hover:bg-stone-50 transition-colors
-                  ${selected === client.id ? 'bg-[var(--accent-light)] border-l-2 border-l-[var(--accent)]' : ''}`}
+                className={`w-full text-left px-5 py-3 border-b border-[var(--border-primary)] hover:bg-[var(--bg-hover)] transition-colors
+                  ${selected === client.id ? 'bg-[var(--primary-50)] border-l-2 border-l-[var(--primary-500)]' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">{client.name}</p>
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate" title={client.name}>{client.name}</p>
                       {!client.active && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-red-50 text-[var(--danger)] rounded-full font-medium">
-                          neaktívny
+                        <span className="text-[10px] px-1.5 py-0.5 bg-[var(--danger-50)] text-[var(--danger-600)] rounded-full font-medium">
+                          neaktivny
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-[var(--muted)] truncate">{client.email}</p>
+                    <p className="text-xs text-[var(--text-tertiary)] truncate" title={client.email}>{client.email}</p>
                   </div>
                   <div className="text-right shrink-0 ml-3">
-                    <p className="text-sm font-medium">{client.email_count}</p>
-                    <p className="text-[10px] text-[var(--muted)]">emailov</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)] tabular-nums">{client.email_count}</p>
+                    <p className="text-[10px] text-[var(--text-tertiary)]">emailov</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[10px] text-[var(--muted)]">
-                    {client.gmail_connected ? '🟢 Gmail' : '⚪ Gmail'}
+                  <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
+                    {client.gmail_connected
+                      ? <><Wifi size={10} className="text-[var(--success-600)]" /> Gmail</>
+                      : <><WifiOff size={10} /> Gmail</>}
                   </span>
-                  <span className="text-[10px] text-[var(--muted)]">
+                  <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
+                    <HelpCircle size={10} />
                     {client.faq_count} FAQ
                   </span>
-                  <span className="text-[10px] text-[var(--muted)]">
+                  <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
+                    <Calendar size={10} />
                     {new Date(client.created_at).toLocaleDateString('sk-SK')}
                   </span>
                 </div>
@@ -145,73 +191,72 @@ export default function ClientsPage() {
           <div className="p-6 max-w-2xl">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold">{detail.name}</h2>
-                <p className="text-sm text-[var(--muted)]">{detail.email}</p>
+                <h2 className="text-xl font-semibold text-[var(--text-primary)]">{detail.name}</h2>
+                <p className="text-sm text-[var(--text-tertiary)]">{detail.email}</p>
                 {detail.gmail_email && (
-                  <p className="text-xs text-[var(--muted)] mt-0.5">Gmail: {detail.gmail_email}</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5">Gmail: {detail.gmail_email}</p>
                 )}
               </div>
-              <button
+              <Button
+                variant={detail.active ? 'danger' : 'primary'}
+                size="sm"
                 onClick={() => toggleActive(detail.id, detail.active)}
-                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                  detail.active
-                    ? 'border-[var(--danger)] text-[var(--danger)] hover:bg-red-50'
-                    : 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-light)]'
-                }`}
               >
-                {detail.active ? 'Deaktivovať' : 'Aktivovať'}
-              </button>
+                {detail.active ? 'Deaktivovat' : 'Aktivovat'}
+              </Button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-4 gap-3 mb-6">
-              <StatCard label="Emaily celkom" value={detail.email_total} />
-              <StatCard label="Emaily dnes" value={detail.email_today} />
-              <StatCard label="FAQ zhody" value={detail.faq_matched} />
-              <StatCard label="FAQ šablóny" value={detail.faq_count} />
+              <StatCard label="Emaily celkom" value={detail.email_total} icon={<Mail size={14} />} />
+              <StatCard label="Emaily dnes" value={detail.email_today} icon={<Mail size={14} />} />
+              <StatCard label="FAQ zhody" value={detail.faq_matched} icon={<HelpCircle size={14} />} />
+              <StatCard label="FAQ sablony" value={detail.faq_count} icon={<HelpCircle size={14} />} />
             </div>
 
             {/* Status badges */}
             <div className="flex items-center gap-2 mb-6">
-              <span className={`text-xs px-2.5 py-1 rounded-full ${
-                detail.active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-[var(--danger)]'
+              <span className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+                detail.active
+                  ? 'bg-[var(--success-50)] text-[var(--success-600)]'
+                  : 'bg-[var(--danger-50)] text-[var(--danger-600)]'
               }`}>
-                {detail.active ? 'Aktívny' : 'Neaktívny'}
+                {detail.active ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                {detail.active ? 'Aktivny' : 'Neaktivny'}
               </span>
-              <span className={`text-xs px-2.5 py-1 rounded-full ${
-                detail.gmail_connected ? 'bg-blue-50 text-blue-700' : 'bg-stone-100 text-[var(--muted)]'
+              <span className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+                detail.gmail_connected
+                  ? 'bg-[var(--info-50)] text-[var(--info-600)]'
+                  : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'
               }`}>
-                {detail.gmail_connected ? 'Gmail pripojený' : 'Gmail nepripojený'}
+                {detail.gmail_connected ? <Wifi size={12} /> : <WifiOff size={12} />}
+                {detail.gmail_connected ? 'Gmail pripojeny' : 'Gmail nepripojeny'}
               </span>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-stone-100 text-[var(--muted)]">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] flex items-center gap-1.5">
+                <Calendar size={12} />
                 Od {new Date(detail.created_at).toLocaleDateString('sk-SK')}
               </span>
             </div>
 
             {/* Category Breakdown */}
             {detail.categories.length > 0 && (
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-                <h3 className="text-sm font-medium mb-3">Kategórie emailov</h3>
-                <div className="space-y-2">
+              <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-5">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Kategorie emailov</h3>
+                <div className="space-y-3">
                   {detail.categories.map((cat) => {
                     const maxCat = Math.max(...detail.categories.map((c) => c.count), 1);
                     const pct = (cat.count / maxCat) * 100;
-                    const colors: Record<string, string> = {
-                      URGENT: '#dc2626', TIME_SENSITIVE: '#ea580c', FAQ: '#2563eb', NORMAL: '#78716c', SPAM: '#a8a29e',
-                    };
-                    const labels: Record<string, string> = {
-                      URGENT: 'Urgentné', TIME_SENSITIVE: 'Časovo citlivé', FAQ: 'FAQ', NORMAL: 'Bežné', SPAM: 'Spam',
-                    };
+                    const config = CATEGORY_CONFIG[cat.category] || CATEGORY_CONFIG.NORMAL;
                     return (
                       <div key={cat.category}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-xs">{labels[cat.category] || cat.category}</span>
-                          <span className="text-xs font-medium">{cat.count}</span>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-[var(--text-primary)]">{config.label}</span>
+                          <span className="text-sm font-medium text-[var(--text-primary)] tabular-nums">{cat.count}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-[var(--border)]">
+                        <div className="h-2 rounded-full bg-[var(--bg-tertiary)]">
                           <div
-                            className="h-1.5 rounded-full"
-                            style={{ width: `${pct}%`, backgroundColor: colors[cat.category] || '#78716c' }}
+                            className="h-2 rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: config.color }}
                           />
                         </div>
                       </div>
@@ -222,19 +267,33 @@ export default function ClientsPage() {
             )}
           </div>
         ) : detailLoading ? (
-          <div className="p-8">
-            <div className="h-6 w-40 bg-[var(--border)] rounded animate-pulse mb-4" />
-            <div className="grid grid-cols-4 gap-3">
+          <div className="p-6 max-w-2xl">
+            <div className="flex items-start justify-between mb-6">
+              <div className="space-y-2">
+                <Skeleton width={180} height={20} />
+                <Skeleton width={220} height={14} />
+              </div>
+              <Skeleton width={100} height={32} />
+            </div>
+            <div className="grid grid-cols-4 gap-3 mb-6">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-16 bg-[var(--card)] border border-[var(--border)] rounded-xl animate-pulse" />
+                <div key={i} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-3 space-y-2">
+                  <Skeleton width={40} height={24} />
+                  <Skeleton width={80} height={10} />
+                </div>
               ))}
+            </div>
+            <div className="flex gap-2 mb-6">
+              <Skeleton width={80} height={24} rounded="full" />
+              <Skeleton width={120} height={24} rounded="full" />
+              <Skeleton width={100} height={24} rounded="full" />
             </div>
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="text-4xl mb-3 opacity-30">👥</div>
-              <p className="text-sm text-[var(--muted)]">Vyberte klienta na zobrazenie</p>
+              <Users size={36} className="mx-auto mb-3 text-[var(--text-tertiary)] opacity-20" />
+              <p className="text-sm text-[var(--text-tertiary)]">Vyberte klienta na zobrazenie</p>
             </div>
           </div>
         )}
@@ -243,11 +302,14 @@ export default function ClientsPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-      <p className="text-xl font-bold">{value}</p>
-      <p className="text-[10px] text-[var(--muted)] mt-0.5">{label}</p>
+    <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-[var(--radius-xl)] p-3 text-center">
+      <div className="flex justify-center mb-1">
+        <span className="text-[var(--text-tertiary)]">{icon}</span>
+      </div>
+      <p className="text-xl font-bold text-[var(--text-primary)] tabular-nums">{value}</p>
+      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{label}</p>
     </div>
   );
 }
