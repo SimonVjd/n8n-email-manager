@@ -6,6 +6,7 @@ import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import Button from '@/components/ui/Button';
 import Skeleton from '@/components/ui/Skeleton';
+import ConsentScreen from '@/components/ConsentScreen';
 import {
   Mail,
   Sun,
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showConsentScreen, setShowConsentScreen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -38,7 +40,25 @@ export default function SettingsPage() {
 
     const gmailParam = searchParams.get('gmail');
     if (gmailParam === 'connected') {
-      setMessage({ type: 'success', text: 'Gmail bol úspešne pripojený!' });
+      // Check if user has AI consent — if not, show consent screen
+      fetchWithTimeout('/api/consents', { timeout: 10000 })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            const hasAiConsent = data.data?.some(
+              (c: { consent_type: string; granted: boolean }) => c.consent_type === 'ai_processing' && c.granted
+            );
+            if (!hasAiConsent) {
+              setShowConsentScreen(true);
+            } else {
+              setMessage({ type: 'success', text: 'Gmail bol úspešne pripojený!' });
+            }
+          }
+        })
+        .catch(() => {
+          // If consent check fails, still show success
+          setMessage({ type: 'success', text: 'Gmail bol úspešne pripojený!' });
+        });
     } else if (gmailParam === 'error') {
       const reason = searchParams.get('reason') || 'unknown';
       const messages: Record<string, string> = {
@@ -245,6 +265,19 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* AI Consent Screen — shown after Gmail connect if consent missing */}
+      <ConsentScreen
+        open={showConsentScreen}
+        onConsent={() => {
+          setShowConsentScreen(false);
+          setMessage({ type: 'success', text: 'Gmail pripojený. AI spracovanie aktivované.' });
+        }}
+        onDecline={() => {
+          setShowConsentScreen(false);
+          setMessage({ type: 'success', text: 'Gmail pripojený. Emaily sa synchronizujú bez AI analýzy.' });
+        }}
+      />
     </div>
   );
 }
