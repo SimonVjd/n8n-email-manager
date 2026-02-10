@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useCookieBanner } from '@/contexts/CookieContext';
 
 const LEGAL_LINKS = [
   { href: '/privacy-policy', label: 'Ochrana údajov' },
@@ -9,7 +10,9 @@ const LEGAL_LINKS = [
   { href: '/reklamacia', label: 'Reklamácie' },
 ];
 
-export default function Footer({ onOpenCookieSettings }: { onOpenCookieSettings?: () => void }) {
+export default function Footer() {
+  const { openBanner } = useCookieBanner();
+
   return (
     <footer className="border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-4 py-3 shrink-0 z-10">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-tertiary)]">
@@ -39,17 +42,13 @@ export default function Footer({ onOpenCookieSettings }: { onOpenCookieSettings?
             ec.europa.eu/consumers/odr
           </a>
         </span>
-        {onOpenCookieSettings && (
-          <>
-            <span className="hidden sm:inline">|</span>
-            <button
-              onClick={onOpenCookieSettings}
-              className="hover:text-[var(--primary-600)] transition-colors cursor-pointer"
-            >
-              Nastavenia cookies
-            </button>
-          </>
-        )}
+        <span className="hidden sm:inline">|</span>
+        <button
+          onClick={openBanner}
+          className="hover:text-[var(--primary-600)] transition-colors cursor-pointer"
+        >
+          Nastavenia cookies
+        </button>
       </div>
     </footer>
   );
