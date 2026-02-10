@@ -50,25 +50,17 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
     },
   ]);
 
-  // Fetch unread count (inbox only — exclude resolved emails)
+  // Fetch unread count via dedicated lightweight endpoint
   useEffect(() => {
-    const RESOLVED = ['sent', 'edited_sent', 'auto_sent'];
     async function fetchUnread() {
       try {
-        const res = await fetchWithTimeout('/api/emails', { timeout: 5000 });
+        const res = await fetchWithTimeout('/api/emails/unread-count', { timeout: 5000 });
         const data = await res.json();
-        if (data.success && Array.isArray(data.data)) {
-          setUnreadCount(
-            data.data.filter((e: { is_read: boolean; reply_status: string; category: string }) =>
-              !e.is_read && !RESOLVED.includes(e.reply_status) && e.category !== 'SPAM'
-            ).length
-          );
-        }
+        if (data.success) setUnreadCount(data.data.count);
       } catch { /* silent */ }
     }
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
-    // Listen for instant updates from dashboard
     const onRead = () => setUnreadCount(c => Math.max(0, c - 1));
     window.addEventListener('email-read', onRead);
     return () => { clearInterval(interval); window.removeEventListener('email-read', onRead); };

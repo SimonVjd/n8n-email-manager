@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Email, ReplyTemplate } from '@/lib/types';
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { useToast } from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import {
   Reply,
@@ -24,6 +25,7 @@ interface ReplyPanelProps {
 }
 
 export default function ReplyPanel({ email, onReplySent, gmailConnected }: ReplyPanelProps) {
+  const { toast } = useToast();
   const [replyText, setReplyText] = useState(email.auto_reply_sk || '');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -129,11 +131,12 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
         setTemplates(prev => [data.data, ...prev]);
         setNewTemplateName('');
         setShowNewTemplate(false);
+        toast.success('Šablóna bola uložená');
       } else {
-        setError(data.error || 'Nepodarilo sa uložiť šablónu');
+        toast.error(data.error || 'Nepodarilo sa uložiť šablónu');
       }
     } catch {
-      setError('Nepodarilo sa uložiť šablónu');
+      toast.error('Nepodarilo sa uložiť šablónu');
     } finally {
       setSavingTemplate(false);
     }
@@ -152,11 +155,12 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
       if (data.success) {
         setTemplates(prev => prev.map(t => t.id === id ? data.data : t));
         setEditingTemplate(null);
+        toast.success('Šablóna bola aktualizovaná');
       } else {
-        setError(data.error || 'Nepodarilo sa aktualizovať šablónu');
+        toast.error(data.error || 'Nepodarilo sa aktualizovať šablónu');
       }
     } catch {
-      setError('Nepodarilo sa aktualizovať šablónu');
+      toast.error('Nepodarilo sa aktualizovať šablónu');
     }
   }
 
@@ -172,15 +176,15 @@ export default function ReplyPanel({ email, onReplySent, gmailConnected }: Reply
       if (data.success) {
         setTemplates(prev => {
           const updated = prev.filter(t => t.id !== id);
-          // Close dropdown if no templates left
           if (updated.length === 0) setShowTemplates(false);
           return updated;
         });
+        toast.success('Šablóna bola vymazaná');
       } else {
-        setError(data.error || 'Nepodarilo sa vymazať šablónu');
+        toast.error(data.error || 'Nepodarilo sa vymazať šablónu');
       }
     } catch {
-      setError('Nepodarilo sa vymazať šablónu');
+      toast.error('Nepodarilo sa vymazať šablónu');
     }
   }
 

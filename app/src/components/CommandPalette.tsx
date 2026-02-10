@@ -50,6 +50,7 @@ export default function CommandPalette({ open, onClose, onSelectEmail }: Command
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const searchCacheRef = useRef<Map<string, Email[]>>(new Map());
   const { theme, setTheme } = useTheme();
 
   // Build quick actions with theme toggle
@@ -71,22 +72,33 @@ export default function CommandPalette({ open, onClose, onSelectEmail }: Command
     ...themeActions.map(a => ({ ...a, filter: undefined as string | undefined })),
   ];
 
-  // Focus input when opened
+  // Focus input when opened + clear stale cache
   useEffect(() => {
     if (open) {
       setQuery('');
       setResults([]);
       setActiveIndex(0);
       setMode('actions');
+      searchCacheRef.current.clear();
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
 
-  // Debounced search
+  // Debounced search with cache
   const doSearch = useCallback(async (q: string) => {
     if (q.length < 2) {
       setResults([]);
       setMode('actions');
+      setLoading(false);
+      return;
+    }
+
+    // Check cache first
+    const cached = searchCacheRef.current.get(q);
+    if (cached) {
+      setResults(cached);
+      setMode('search');
+      setActiveIndex(0);
       setLoading(false);
       return;
     }
@@ -99,6 +111,7 @@ export default function CommandPalette({ open, onClose, onSelectEmail }: Command
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       if (data.success) {
+        searchCacheRef.current.set(q, data.data);
         setResults(data.data);
         setActiveIndex(0);
       }
